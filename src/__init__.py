@@ -57,10 +57,13 @@ menus = [
 
 
 def get_classes():
-    all_classes = set(classes)
-    for module in registerable_modules:
-        if hasattr(module, "REGISTER_CLASSES"):
-            all_classes = all_classes.union(module.REGISTER_CLASSES)
+    # Uses a set to prevent doubles, and a list to preserve order
+    all_classes = classes.copy()
+    known_classes = set(classes)
+    for module in [m for m in registerable_modules if hasattr(m, "REGISTER_CLASSES")]:
+        for cls in [c for c in module.REGISTER_CLASSES if c not in known_classes]:
+            all_classes.append(cls)
+            known_classes.add(cls)
     return all_classes
 
 
@@ -81,7 +84,7 @@ def register():
 
 def unregister():
     all_classes = get_classes()
-    for c in all_classes:
+    for c in all_classes[::-1]:
         try:
             bpy.utils.unregister_class(c)
         except RuntimeError:

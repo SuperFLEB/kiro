@@ -2,7 +2,7 @@
   "name": "Open Gorton & PETSCII",
   "description": "A demo keycap set for the Kiro Blender addon",
   "sets": {
-    "square": {
+    "Letter and Square Fn": {
       "cols": 16,
       "rows": 16,
       "start": 3,
@@ -16,13 +16,13 @@
         "ESCAPE","INSERT","HOME","END","NUMLOCK","PAGEUP","PAGEDOWN","DELETECHAR","PRINTSCREEN","SCROLLLOCK","PAUSE","CAPSLOCK","RUNSTOP","SYSHALT","ALTGRAPHIC","BACKSPACE"
       ]
     },
-    "front": {
-      "altFor": "square",
+    "Square Fronts": {
+      "altFor": "Letter and Square Fn",
       "cols": 16,
       "rows": 32,
       "start": 448
     },
-    "doublewide": {
+    "Double-wide Function Keys": {
       "cols": 8,
       "rows": 16,
       "start": 64,

@@ -8,10 +8,12 @@ from ..lib import typeset
 if "_LOADED" in locals():
     import importlib
 
-    for mod in (kiro,typeset):  # list all imports here
+    for mod in (kiro, typeset):  # list all imports here
         importlib.reload(mod)
 _LOADED = True
 
+
+KiroKeyset = kiro.KiroKeyset
 
 class KeySet(PropertyGroup):
     name: StringProperty(
@@ -36,47 +38,8 @@ class KeySetUIList(UIList):
         layout.label(text=item.image)
 
 
-class ArrayKeys(Operator):
-    """Put a description of what the operator does here"""
-    bl_idname = "object.array_keycaps"
-    bl_label = "Kiro: Array Keycaps"
-    bl_options = {'REGISTER', 'UNDO'}
-
-    length: IntProperty(name="String Length")
+class ArrayKeysBase(Operator):
     gap: FloatProperty(name="Gap")
-
-    @classmethod
-    def poll(cls, context):
-        return len(context.selected_objects) == 1
-
-    def execute(self, context):
-        original = context.selected_objects[0]
-        start_key = original["keycap"] if original["keycap"] else 0
-        for idx in range(self.length - 1):
-            target_collection = context.collection
-            new_copy = original.copy()
-            new_copy.location += Vector(((new_copy.dimensions.x + self.gap) * (idx + 1), 0, 0))
-            target_collection.objects.link(new_copy)
-            # Need to deselect, or the poll fails because more than one object is selected
-            new_copy.select_set(False)
-
-            # TODO: Actually look up the order
-            new_copy['keycap'] = start_key + idx + 1
-
-        return {'FINISHED'}
-
-
-class StringKeys(Operator):
-    """Put a description of what the operator does here"""
-    bl_idname = "object.string_keycaps"
-    bl_label = "Kiro: Array Keycaps from String"
-    bl_options = {'REGISTER', 'UNDO'}
-
-    gap: FloatProperty(name="Gap")
-    string: StringProperty(name="String", options={'TEXTEDIT_UPDATE'})
-    space_as_gap: BoolProperty(name="Non-bracketed spaces leave a gap",
-                                         description="Space characters that are not in square brackets will leave gaps instead of a key")
-    space_gap_adjust: FloatProperty(name="Space Adjust", description="Add or remove space from Space character gaps")
     axis: EnumProperty(
         items=[
             ("+x", "+X", "Left to right"),
@@ -91,6 +54,94 @@ class StringKeys(Operator):
     )
     keysets: CollectionProperty(type=KeySet)
     selected_keyset: IntProperty()
+
+    def draw_common_layout(self, context, layout):
+        layout = self.layout
+        layout.prop(self, "gap")
+        axis_row = layout.row()
+        axis_row.prop(self, "axis", expand=True)
+
+    def draw_keyset_picker(self, context, layout):
+        context.layout.template_list("CUSTOM_UL_keyset", "keysets", self, "keysets", self, "selected_keyset")
+
+    def keyset_picker(self) -> KiroKeyset:
+        self.keysets.clear()
+        keysets_by_image = kiro.keysets_by_image()
+        keysets_by_index: list[KiroKeyset] = []
+        for (image_name, image_keysets) in sorted(keysets_by_image.items(), key=(lambda item: item[0])):
+            for ks in sorted(image_keysets, key=(lambda item: item.name)):
+                ui_list_item = self.keysets.add()
+                ui_list_item.name = ks.name
+                ui_list_item.image = image_name
+                keysets_by_index.append(ks)
+        return keysets_by_index[self.selected_keyset]
+
+
+def fill_layout_enum(self, context):
+    enum = [
+        ("_", "(From keycaps)", "The sequence in the keyset")
+    ]
+    for name in kiro.get_layout_names():
+        enum.append((name, name, f"The built-in \"{name}\" layout"))
+    return enum
+
+
+class ArrayKeys(ArrayKeysBase):
+    """Put a description of what the operator does here"""
+    bl_idname = "object.array_keycaps"
+    bl_label = "Kiro: Array Keycaps"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    length: IntProperty(name="String Length")
+    layout_name: EnumProperty(name="Layout", items=fill_layout_enum)
+
+    @classmethod
+    def poll(cls, context):
+        return len(context.selected_objects) == 1
+
+    def draw(self, context):
+        layout = self.layout
+        layout.prop(self, "layout_name")
+        layout.prop(self, "length")
+        self.draw_common_layout(context, layout)
+        layout.template_list("CUSTOM_UL_keyset", "keysets", self, "keysets", self, "selected_keyset")
+
+    def execute(self, context):
+        original = context.selected_objects[0]
+        selected_keyset = self.keyset_picker()
+        start_key = original["keycap"] if original["keycap"] else 0
+
+        if self.layout_name == "_":
+            indices = range(start_key, start_key + self.length, -1 if self.length < 0 else 1)
+        else:
+            indices = kiro.layout_sequence(
+                start_key,
+                self.length,
+                keyset=selected_keyset,
+                layout_name=self.layout_name
+            )
+
+        objects = typeset.extend_from_original(
+            original,
+            indices,
+            target=context.collection,
+            gap=self.gap,
+            direction=self.axis
+        )
+
+        return {'FINISHED'}
+
+
+class StringKeys(ArrayKeysBase):
+    """Put a description of what the operator does here"""
+    bl_idname = "object.string_keycaps"
+    bl_label = "Kiro: Array Keycaps from String"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    string: StringProperty(name="String", options={'TEXTEDIT_UPDATE'})
+    space_as_gap: BoolProperty(name="Non-bracketed spaces leave a gap",
+                                         description="Space characters that are not in square brackets will leave gaps instead of a key")
+    space_gap_adjust: FloatProperty(name="Space Adjust", description="Add or remove space from Space character gaps")
 
     @classmethod
     def poll(cls, context):
@@ -108,23 +159,11 @@ class StringKeys(Operator):
         if self.space_as_gap:
             layout.prop(self, "space_gap_adjust")
         layout.template_list("CUSTOM_UL_keyset", "keysets", self, "keysets", self, "selected_keyset")
-        # , item_dyntip_propname='', rows=5, maxrows=5, type='DEFAULT', columns=9, sort_reverse=False, sort_lock=False)
 
     def execute(self, context):
         original = context.selected_objects[0]
-        self.keysets.clear()
-        keysets_by_image = kiro.keysets_by_image()
-        keysets_by_index = []
-        for (image_name, image_keysets) in sorted(keysets_by_image.items(), key=(lambda item: item[0])):
-            for ks in sorted(image_keysets, key=(lambda item: item.name)):
-                ui_list_item = self.keysets.add()
-                ui_list_item.name = ks.name
-                ui_list_item.image = image_name
-                keysets_by_index.append(ks)
-
-        selected_keyset = keysets_by_index[self.selected_keyset]
+        selected_keyset = self.keyset_picker()
         indices = kiro.string_to_indices(self.string, selected_keyset, space_to_none=self.space_as_gap)
-
         objects = typeset.extend_from_original(
             original,
             indices,
