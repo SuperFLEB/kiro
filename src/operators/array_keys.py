@@ -1,13 +1,14 @@
 import bpy
-from bpy.props import StringProperty, IntProperty, FloatProperty, BoolProperty, CollectionProperty
+from bpy.props import StringProperty, IntProperty, FloatProperty, BoolProperty, EnumProperty, CollectionProperty
 from bpy.types import PropertyGroup, UIList, Operator, Panel
 from mathutils import Vector
 from ..lib import kiro
+from ..lib import typeset
 
 if "_LOADED" in locals():
     import importlib
 
-    for mod in (kiro,):  # list all imports here
+    for mod in (kiro,typeset):  # list all imports here
         importlib.reload(mod)
 _LOADED = True
 
@@ -76,6 +77,18 @@ class StringKeys(Operator):
     space_as_gap: BoolProperty(name="Non-bracketed spaces leave a gap",
                                          description="Space characters that are not in square brackets will leave gaps instead of a key")
     space_gap_adjust: FloatProperty(name="Space Adjust", description="Add or remove space from Space character gaps")
+    axis: EnumProperty(
+        items=[
+            ("+x", "+X", "Left to right"),
+            ("+y", "+Y", "Down to up"),
+            ("+z", "+Z", "Near to far"),
+            ("-x", "-X", "Right to left"),
+            ("-y", "-Y", "Top to bottom"),
+            ("-z", "-Z", "Far to near"),
+        ],
+        name="Axis",
+        description="How to place new keycaps relative to the original"
+    )
     keysets: CollectionProperty(type=KeySet)
     selected_keyset: IntProperty()
 
@@ -87,6 +100,10 @@ class StringKeys(Operator):
         layout = self.layout
         layout.prop(self, "gap")
         layout.prop(self, "string")
+
+        axis_row = layout.row()
+        axis_row.prop(self, "axis", expand=True)
+
         layout.prop(self, "space_as_gap")
         if self.space_as_gap:
             layout.prop(self, "space_gap_adjust")
@@ -108,29 +125,15 @@ class StringKeys(Operator):
         selected_keyset = keysets_by_index[self.selected_keyset]
         indices = kiro.string_to_indices(self.string, selected_keyset, space_to_none=self.space_as_gap)
 
-        if not indices:
-            return {'FINISHED'}
+        objects = typeset.extend_from_original(
+            original,
+            indices,
+            target=context.collection,
+            gap=self.gap,
+            space_gap=self.space_gap_adjust,
+            direction=self.axis
+        )
 
-        original["keycap"] = indices[0]
-
-        # TODO: support different orientations, maybe even multiline
-        location = original.location.x
-
-        for token_index, keycap_index in enumerate(indices[1::]):
-            if keycap_index is None:
-                location += original.dimensions.x + self.gap + self.space_gap_adjust
-                continue
-
-            # TODO: support different orientations, maybe even multiline
-            location += original.dimensions.x + self.gap
-
-            target_collection = context.collection
-            new_copy = original.copy()
-            new_copy.location = (location, original.location.y, original.location.z)
-            target_collection.objects.link(new_copy)
-            # Need to deselect, or the poll fails because more than one object is selected
-            new_copy.select_set(False)
-            new_copy['keycap'] = keycap_index
         return {'FINISHED'}
 
 

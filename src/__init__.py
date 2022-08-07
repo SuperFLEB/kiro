@@ -74,7 +74,7 @@ def register():
         except RuntimeError:
             pass
         bpy.utils.register_class(c)
-        print("Register class:", c)
+        print("Kiro Registered class:", c)
     for m in menus:
         getattr(bpy.types, m[0]).append(m[1])
 
