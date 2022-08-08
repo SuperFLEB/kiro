@@ -1,6 +1,6 @@
 import bpy
 from bpy.props import StringProperty, IntProperty, FloatProperty, BoolProperty, EnumProperty, CollectionProperty
-from bpy.types import PropertyGroup, UIList, Operator, Panel
+from bpy.types import PropertyGroup, UIList, Operator
 from mathutils import Vector
 from ..lib import kiro
 from ..lib import typeset
@@ -14,6 +14,7 @@ _LOADED = True
 
 
 KiroKeyset = kiro.KiroKeyset
+
 
 class KeySet(PropertyGroup):
     name: StringProperty(
@@ -66,7 +67,7 @@ class ArrayKeysBase(Operator):
 
     def keyset_picker(self) -> KiroKeyset:
         self.keysets.clear()
-        keysets_by_image = kiro.keysets_by_image()
+        keysets_by_image = kiro.keysets_by_image(include_alternates=False)
         keysets_by_index: list[KiroKeyset] = []
         for (image_name, image_keysets) in sorted(keysets_by_image.items(), key=(lambda item: item[0])):
             for ks in sorted(image_keysets, key=(lambda item: item.name)):

@@ -54,12 +54,7 @@ This should get easier in the future as I add tools to generate the nodes and pr
 
 ## To-dos
 
-### Basic Feature-Completeness
-
-* Add a feature to generate/configure the nodegroups and object properties
-* Support more orientations than +X
-
-### Extended Features
+### Upcoming Features
 
 * Support packing JSON into Text nodes and using packed images (If possible, hook the packing feature. If not, make an action.)
 * Support grouping or parenting to a new object

@@ -1,15 +1,17 @@
 import bpy
 from .operators import array_keys
+from .operators import shader_node
 
 if "_LOADED" in locals():
     import importlib
-    for mod in (array_keys,):  # list all imports here
+    for mod in (array_keys, shader_node):  # list all imports here
         importlib.reload(mod)
 _LOADED = True
 
 ArrayKeys = array_keys.ArrayKeys
 StringKeys = array_keys.StringKeys
 KeySet = array_keys.KeySet
+AddKiroShader = shader_node.AddKiroShader
 
 package_name = __package__
 
@@ -31,20 +33,25 @@ bl_info = {
 }
 
 
-def menu_ArrayKeys(self, context): self.layout.operator(ArrayKeys.bl_idname)
-def menu_StringKeys(self, context): self.layout.operator(StringKeys.bl_idname)
+def menuitem(cls, operator_context: str = "EXEC_DEFAULT"):
+    def this_menuitem(self, context):
+        self.layout.operator_context = operator_context
+        self.layout.operator(cls.bl_idname)
+    return this_menuitem
 
 
 # Registerable modules have a REGISTER_MODULES list that lists all registerable classes in the module
 registerable_modules = [
     array_keys,
+    shader_node,
 ]
 
 classes = []
 
 menus = [
-    ["VIEW3D_MT_object_context_menu", menu_ArrayKeys],
-    ["VIEW3D_MT_object_context_menu", menu_StringKeys],
+    ["VIEW3D_MT_object_context_menu", menuitem(ArrayKeys)],
+    ["VIEW3D_MT_object_context_menu", menuitem(StringKeys)],
+    ["NODE_MT_add", menuitem(AddKiroShader, "INVOKE_DEFAULT")],
     # ["NODE_MT_context_menu", menu_function],
     # Some common ones:
     # "Object" menu
