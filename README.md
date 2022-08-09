@@ -54,6 +54,10 @@ This should get easier in the future as I add tools to generate the nodes and pr
 
 ## To-dos
 
+### Next-up Fixes
+
+* Allow loading an image that isn't already in the file.
+
 ### Upcoming Features
 
 * Support packing JSON into Text nodes and using packed images (If possible, hook the packing feature. If not, make an action.)

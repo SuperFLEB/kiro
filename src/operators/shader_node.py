@@ -72,9 +72,11 @@ class AddKiroShader(Operator):
         # Make the NodeGroup Node
         sng_node = nodes.new(type='ShaderNodeGroup')
         sng_node.node_tree = grid_picker_source
+        sng_node.label = keyset.name
         sng_node.inputs["Start Index (Offset)"].default_value = keyset.start
         sng_node.inputs["Units Wide"].default_value = keyset.cols
         sng_node.inputs["Units High"].default_value = keyset.rows
+        sng_node.inputs["Run Length (Limit)"].default_value = keyset.length
 
         # Make the Image Node
         image_node = nodes.new('ShaderNodeTexImage')

@@ -1,5 +1,5 @@
 {
-  "name": "Open Gorton & PETSCII",
+  "name": "Gorton+PETSCII",
   "description": "A demo keycap set for the Kiro Blender addon",
   "sets": {
     "Letter and Square Fn": {
@@ -7,20 +7,23 @@
       "rows": 16,
       "start": 3,
       "keys": [
-        "A","B","C","D","E","F","G","H","I","J","K","L","M",
-        "N","O","P","Q","R","S","T","U","V","W","X","Y","Z",{"gap": 3},
+        null, "A","B","C","D","E","F","G","H","I","J","K","L","M",
+        "N","O","P","Q","R","S","T","U","V","W","X","Y","Z",{"gap": 2},
         {"row_gap": 1},
         "1","2","3","4","5","6","7","8","9","0","-","=","[","]","\\",";",
         "'",",",".","/","`","@","+","-","*","/",".",null,"UP","DOWN","LEFT","RIGHT",
         "F1","F2","F3","F4","F5","F6","F7","F8","F9","F10","F11","F12","F13","F14","F15","F16",
         "ESCAPE","INSERT","HOME","END","NUMLOCK","PAGEUP","PAGEDOWN","DELETECHAR","PRINTSCREEN","SCROLLLOCK","PAUSE","CAPSLOCK","RUNSTOP","SYSHALT","ALTGRAPHIC","BACKSPACE"
-      ]
+      ],
+      "default_key": 0
     },
-    "Square Fronts": {
+    "Front: Letter and Square Fn": {
       "altFor": "Letter and Square Fn",
       "cols": 16,
       "rows": 32,
-      "start": 448
+      "start": 448,
+      "length": 56,
+      "default_key": 0
     },
     "Double-wide Function Keys": {
       "cols": 8,
