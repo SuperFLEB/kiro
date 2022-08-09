@@ -1,4 +1,5 @@
 import bpy
+from typing import Set
 from bpy.props import StringProperty, IntProperty, FloatProperty, BoolProperty, EnumProperty, CollectionProperty
 from bpy.types import Operator
 from ..lib import kiro
@@ -12,14 +13,14 @@ if "_LOADED" in locals():
 _LOADED = True
 
 
-def fill_images_enum(self, context):
+def fill_images_enum(self, context) -> list[tuple[str, str, str]]:
     enum = [("_", "(Select an image file)", "Select a file instead of using an existing one")]
     for ki in kiro.kiro_images():
         enum.append((ki.name_full, ki.name, ki.name_full))
     return enum
 
 
-def fill_keysets_enum(self, context):
+def fill_keysets_enum(self, context) -> list[tuple[str, str, str]]:
     enum = []
     keysets = kiro.keysets_for_image_name_full(self.image)
     for ks in keysets:
@@ -39,13 +40,13 @@ class AddKiroShader(Operator):
     tag_users: BoolProperty(name="Add Custom Property (keycap) on Material Users")
 
     @classmethod
-    def poll(cls, context):
-        return context.material
+    def poll(cls, context) -> bool:
+        return bool(context.material)
 
     def invoke(self, context, event):
         return context.window_manager.invoke_props_dialog(self)
 
-    def draw(self, context):
+    def draw(self, context) -> None:
         layout = self.layout
         if kiro.kiro_images():
             layout.prop(self, "image")
@@ -58,7 +59,7 @@ class AddKiroShader(Operator):
             layout.prop(self, "keyset")
             layout.prop(self, "tag_users")
 
-    def execute(self, context):
+    def execute(self, context) -> Set[str]:
         # TODO: support image paths
         keysets = [ks for ks in kiro.keysets_for_image_name_full(self.image) if ks.name == self.keyset]
         if not keysets:
