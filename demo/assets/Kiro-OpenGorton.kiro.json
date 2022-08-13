@@ -19,7 +19,7 @@
       "default_key": 0
     },
     "Front: Letter and Square Fn": {
-      "altFor": "Letter and Square Fn",
+      "alt_for": "Letter and Square Fn",
       "cols": 16,
       "rows": 32,
       "start": 448,
@@ -33,7 +33,8 @@
       "keys": [
         "TAB","SHIFT","CTRL","ALT","META","ENTER","BACKSPACE","CAPSLOCK",
         "RUNSTOP","PROGRAMREAD","TAPESTART","TAPESTOP","PROGRAMRESET","INPUTMODE","PROGROCK","LAUNCHCOMMIT"
-      ]
+      ],
+      "default_key": 0
     }
   }
 }

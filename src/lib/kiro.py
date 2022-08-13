@@ -1,78 +1,39 @@
 import bpy
-import re
 import json
-from typing import Iterable
-from . import cache
 from os.path import exists, dirname, basename, join
-from . import data
+from warnings import warn
+import re
+from . import cache
+from . import metadata
+from . import types
 
 if "_LOADED" in locals():
     import importlib
 
-    for mod in (cache, data,):  # list all imports here
+    for mod in (cache, metadata, types):  # list all imports here
         importlib.reload(mod)
 _LOADED = True
-
-
-KiroImageMeta = data.KiroImageInfo
-
 
 # These will persist between calls, so they should not contain anything with RNA that can go stale
 _DEBUG_CACHE = False
 _CACHE_TIME = 5
+
 _general_cache = cache.Cache(_CACHE_TIME, debug_id=("_general_cache" if _DEBUG_CACHE else None))
 _data_cache = cache.Cache(_CACHE_TIME, debug_id=("_data_cache" if _DEBUG_CACHE else None))
 
-
-class KiroKeyset:
-    name: str
-    cols: int
-    rows: int
-    start: int
-    keys: list[str]
-    length: int
-    length_explicit: bool
-    default_key: int
-
-    def __init__(
-            self,
-            name: str = None,
-            cols: int = None,
-            rows: int = None,
-            start: int = None,
-            keys: list[str] = None,
-            length: int = None,
-            default_key: int = 0
-    ):
-        self.name = name
-        self.cols = cols
-        self.rows = rows
-        self.start = start
-        self.keys = keys
-        self.length = length if length else len(keys)
-        self.length_explicit = (length is not None)
-        self.default_key = default_key
+def _test_clear_caches():
+    """Reinitialize the caches. This should only be used by tests."""
+    _general_cache.clear()
+    _data_cache.clear()
 
 
-def kiro_images(ignore_cache: bool = False) -> list[KiroImageMeta]:
+def kiro_images(ignore_cache: bool = False) -> list[types.KiroImageMeta]:
     if not ignore_cache:
         cached = _general_cache.get("images")
         if cached: return cached
 
-    images = []
-    for image in bpy.data.images:
-
-        image_path = bpy.path.abspath(image.filepath)
-        if not image_path:
-            # TODO: Support packed images (allow packing JSON in text?)
-            continue
-        json_file_path = join(dirname(image_path), re.sub(r'\.[^.]+$', '.kiro.json', basename(image_path)))
-        if exists(json_file_path):
-            images.append(KiroImageMeta(
-                name=image.name,
-                name_full=image.name_full,
-                json_path=json_file_path
-            ))
+    # TODO: Probably will have to unroll this in order to suppport packed images
+    images = [meta for meta in [kiro_image_meta(image) for image in bpy.data.images] if meta.json_path is not None and meta.image_path is not None]
 
     if not ignore_cache:
         _general_cache.set("images", images)
@@ -80,43 +41,35 @@ def kiro_images(ignore_cache: bool = False) -> list[KiroImageMeta]:
     return images
 
 
-def kiro_data(json_file_path: str, ignore_cache: bool = False) -> dict:
-    if not ignore_cache:
-        cached = _data_cache.get(json_file_path)
-        if cached: return cached
-
-    if not exists(json_file_path):
-        raise Exception
-    file = open(json_file_path)
-    json_object = json.load(file)
-    file.close()
-
-    if not ignore_cache:
-        _data_cache.set(json_file_path, json_object)
-
-    return json_object
+def kiro_image_meta(image: bpy.types.Image) -> types.KiroImageMeta | None:
+    image_path = bpy.path.abspath(image.filepath)
+    json_file_path = join(dirname(image_path), re.sub(r'\.[^.]+$', '.kiro.json', basename(image_path)))
+    return types.KiroImageMeta(
+        name=image.name,
+        name_full=image.name_full,
+        # TODO: Support packed images (allow packing JSON in text?)
+        image_path=image_path if image_path else None,
+        json_path=json_file_path if exists(json_file_path) else None
+    )
 
 
-def _normalize_keys(keyset: dict) -> list[str | None]:
-    row_length = keyset["cols"]
-    keys_out = []
-    for k in keyset["keys"]:
-        if k is None:
-            keys_out.append(None)
-        elif type(k) is str:
-            keys_out.append(k)
-        elif type(k) is dict:
-            if "gap" in k and type(k["gap"]) is int:
-                keys_out.extend([None] * k["gap"])
-            elif "row_gap" in k and type(k["row_gap"]) is int:
-                keys_out.extend([None] * (k["row_gap"] * row_length))
-        else:
-            print("Invalid keys value in keyset:", k)
-            keys_out.append(None)
-    return keys_out
+def kiro_data(json_file_path: str, ignore_cache: bool = False) -> types.KiroMetaData:
+    def load(_):
+        try:
+            return metadata.load(json_file_path)
+        except metadata.KiroValidationException as e:
+            print("Kiro error:", e.msg)
+            warn(e.msg)
+            return None
+
+    return _data_cache.get_or_resolve(
+        json_file_path,
+        resolver=load,
+        ignore_cache=ignore_cache
+    )
 
 
-def string_to_indices(characters: str, keyset: KiroKeyset, space_to_none: bool = False) -> list[int]:
+def string_to_indices(characters: str, keyset: types.KiroKeyset, space_to_none: bool = False) -> list[int]:
     tokens = []
     in_long_token = False
     for char in characters:
@@ -137,7 +90,7 @@ def string_to_indices(characters: str, keyset: KiroKeyset, space_to_none: bool =
     return tokens_to_indices(tokens, keyset)
 
 
-def tokens_to_indices(tokens: list[str], keyset: KiroKeyset) -> list[int]:
+def tokens_to_indices(tokens: list[str], keyset: types.KiroKeyset) -> list[int]:
     indices = []
     for token in tokens:
         if token is None:
@@ -157,7 +110,7 @@ def tokens_to_indices(tokens: list[str], keyset: KiroKeyset) -> list[int]:
     return indices
 
 
-def index_to_token(index: int, keyset: KiroKeyset) -> str:
+def index_to_token(index: int, keyset: types.KiroKeyset) -> str:
     return keyset.keys[index] if len(keyset.keys) > index else None
 
 
@@ -165,40 +118,37 @@ def set_names(ignore_cache: bool = False) -> list[str]:
     sets = {}
     for image in kiro_images(ignore_cache=ignore_cache):
         data = kiro_data(image.json_path, ignore_cache=ignore_cache)
-        sets[image.name_full] = [s[0] for s in data["sets"].items() if "altFor" not in s[1]]
+        if not data:
+            return []
+        sets[image.name_full] = [s[0] for s in data.keysets.items() if "alt_for" not in s[1]]
     return sets
 
 
-def keysets_for_image_name_full(image_name_full: str, include_alternates: bool = True, ignore_cache: bool = False) -> list[KiroKeyset]:
+def keysets_for_image_name_full(image_name_full: str, include_alternates: bool = True, ignore_cache: bool = False) -> \
+        list[types.KiroKeyset]:
     images = [k for k in kiro_images(ignore_cache=ignore_cache) if k.name_full == image_name_full]
     if not images:
         return []
     return keysets_for_image(images[0], include_alternates=include_alternates, ignore_cache=ignore_cache)
 
 
-def keysets_for_image(image: KiroImageMeta, include_alternates: bool = True, ignore_cache: bool = False) -> list[KiroKeyset]:
+def keysets_for_image(image: types.KiroImageMeta, include_alternates: bool = True, ignore_cache: bool = False) -> list[types.KiroKeyset]:
     data = kiro_data(image.json_path, ignore_cache=ignore_cache)
-    keysets = [KiroKeyset(
-        name=s_name,
-        cols=s["cols"],
-        rows=s["rows"],
-        start=s["start"],
-        length=s["length"] if "length" in s else None,
-        default_key=s["default_key"] if "default_key" in s else None,
-        keys=_normalize_keys(s) if "keys" in s else []
-    ) for (s_name, s) in data["sets"].items() if include_alternates or "altFor" not in s]
-    return keysets
+    if not data:
+        return []
+
+    return [ks for ks in data.keysets.values() if include_alternates or ks.alt_for is None]
 
 
-def keysets_by_image(include_alternates: bool = True, ignore_cache: bool = False) -> dict[str, list[KiroKeyset]]:
+def keysets_by_image(include_alternates: bool = True, ignore_cache: bool = False) -> dict[str, list[types.KiroKeyset]]:
     sets = {}
-    for image in kiro_images(ignore_cache=ignore_cache):
+    for image in [kim for kim in kiro_images(ignore_cache=ignore_cache) if kim]:
         sets[image.name_full] = keysets_for_image(image, include_alternates=include_alternates)
     return sets
 
 
 def layouts() -> dict[str, list[str]]:
-    def get_layouts():
+    def get_layouts(_):
         layouts_file_path = join(dirname(__file__), "..", "layouts.json")
         if not exists(layouts_file_path):
             print(f"Loading layouts: {layouts_file_path} file not found")
@@ -224,7 +174,7 @@ def get_layout(name: str) -> list[str]:
     return los[name]
 
 
-def layout_sequence(start: int, length: int, layout_name: str, keyset: KiroKeyset) -> list[int]:
+def layout_sequence(start: int, length: int, layout_name: str, keyset: types.KiroKeyset) -> list[int]:
     if layout_name == "_": return [start]
     lo = get_layout(layout_name)
     first_token = index_to_token(start, keyset)

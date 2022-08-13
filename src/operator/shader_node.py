@@ -41,7 +41,7 @@ class AddKiroShader(Operator):
 
     @classmethod
     def poll(cls, context) -> bool:
-        return bool(context.material)
+        return bool(hasattr(context, "material"))
 
     def invoke(self, context, event):
         return context.window_manager.invoke_props_dialog(self)

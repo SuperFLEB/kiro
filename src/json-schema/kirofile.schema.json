@@ -46,7 +46,7 @@
               "description": "Default 'fallback' key for values beyond the run length of the keyset.",
               "type": "integer"
             },
-            "altFor": {
+            "alt_for": {
               "description": "If set, this keyset defines an alternative set of cells for the indicated keyset, such as supplementary labeling on the front of a keycap.",
               "type": "string"
             },
@@ -100,13 +100,13 @@
               ],
               "not": {
                 "required": [
-                  "altFor"
+                  "alt_for"
                 ]
               }
             },
             {
               "required": [
-                "altFor"
+                "alt_for"
               ],
               "not": {
                 "required": [

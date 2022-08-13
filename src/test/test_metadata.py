@@ -1,8 +1,10 @@
 from . import pkg
+
 __package__ = pkg()
 
 import unittest
 from importlib import util as il_util
+from os import path
 from ..lib import metadata
 
 """
@@ -30,7 +32,7 @@ def valid_object():
                 "default_key": 0
             },
             "keyset A2": {
-                "altFor": "keyset A1",
+                "alt_for": "keyset A1",
                 "cols": 8,
                 "rows": 4,
                 "start": 24,
@@ -54,25 +56,42 @@ has_jsonschema = bool(il_util.find_spec("jsonschema"))
 class DataTest(unittest.TestCase):
     def test_valid_json_object(self):
         if not has_jsonschema:
-            self.skipTest("The jsonschema module not installed. Schema validation will always succeed.")
-        result = metadata.verify_meta_data(valid_object(), "test_data", strict=True)
-        self.assertTrue(result)
+            self.skipTest("The jsonschema module is not installed. Schema validation will always succeed.")
+        self.assertTrue(metadata.validate(valid_object(), "test_data"))
 
     def test_valid_json_object_with_optional_missing(self):
         if not has_jsonschema:
-            self.skipTest("The jsonschema module not installed. Schema validation will always succeed.")
+            self.skipTest("The jsonschema module is not installed. Schema validation will always succeed.")
         kirofile = valid_object()
-        del(kirofile["kiro"])
-        result = metadata.verify_meta_data(kirofile, "test_data", strict=True)
-        self.assertTrue(result)
+        del (kirofile["kiro"])
+        self.assertTrue(metadata.validate(kirofile, "test_data", strict=True))
 
     def test_invalid_json_object(self):
         if not has_jsonschema:
-            self.skipTest("The jsonschema module not installed. Schema validation will always succeed.")
+            self.skipTest("The jsonschema module is not installed. Schema validation will always succeed.")
         kirofile = valid_object()
-        del(kirofile["keysets"])
-        result = metadata.verify_meta_data(kirofile, "test_data", strict=True)
-        self.assertFalse(result)
+        del (kirofile["keysets"])
+        self.assertRaises(metadata.KiroValidationException,
+                          lambda: metadata.validate(kirofile, "test_data", strict=True))
+
+    def test_load_success(self):
+        json_path = path.join(path.dirname(__file__), "testdata", "image1.kiro.json")
+        kiro_metadata = metadata.load(json_path)
+        self.assertEquals(kiro_metadata.name, "test1")
+
+    def test_load_file_not_found(self):
+        json_path = path.join(path.dirname(__file__), "testdata", "NONEXISTENT_FILE.kiro.json")
+        self.assertRaises(FileNotFoundError, lambda: metadata.load(json_path))
+
+    def test_load_file_not_valid(self):
+        if not has_jsonschema:
+            self.skipTest("The jsonschema module is not installed. Schema validation will always succeed.")
+        json_path = path.join(path.dirname(__file__), "testdata", "not_schema_compliant.kiro.json")
+        self.assertRaises(metadata.KiroValidationException, lambda: metadata.load(json_path))
+
+    def test_load_file_not_json(self):
+        json_path = path.join(path.dirname(__file__), "testdata", "not_json.kiro.json")
+        self.assertRaises(metadata.KiroValidationException, lambda: metadata.load(json_path))
 
 
 if __name__ == '__main__':

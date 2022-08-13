@@ -2,18 +2,21 @@ import bpy
 from .operator import array_keys
 from .operator import shader_node
 from .operator import install_packages
+from .operator import validation_report
 from .panel import preferences as prefs_panel
 from .menu import object_context
+from .menu import edit
 
 if "_LOADED" in locals():
     import importlib
-    for mod in (array_keys, shader_node, object_context, pip_install, prefs_panel):  # list all imports here
+
+    for mod in (array_keys, shader_node, object_context, prefs_panel, validation_report, edit):  # list all imports here
         importlib.reload(mod)
 _LOADED = True
 
 ArrayKeys = array_keys.ArrayKeys
 StringKeys = array_keys.StringKeys
-KeySet = array_keys.KeySet
+KeySet = array_keys.KeySetPropertyGroup
 AddKiroShader = shader_node.AddKiroShader
 ObjectKiroMenu = object_context.ObjectKiroMenu
 
@@ -26,7 +29,7 @@ bl_info = {
     "version": (0, 1, 0),
     "blender": (3, 1, 0),
     "location": "View3D > Object",
-    "warning": "", # used for warning icon and text in addons panel
+    "warning": "",  # used for warning icon and text in addons panel
     "doc_url": "https://github.com/SuperFLEB/kiro",
     "tracker_url": "https://github.com/SuperFLEB/kiro/issues",
     "support": "COMMUNITY",
@@ -42,10 +45,12 @@ def menuitem(cls: bpy.types.Operator | bpy.types.Menu, operator_context: str = "
         def operator_fn(self, context):
             self.layout.operator_context = operator_context
             self.layout.operator(cls.bl_idname)
+
         return operator_fn
     if issubclass(cls, bpy.types.Menu):
         def submenu_fn(self, context):
             self.layout.menu(cls.bl_idname)
+
         return submenu_fn
     raise Exception(f"Kiro: Unknown menu type for menu {cls}. The developer screwed up.")
 
@@ -57,6 +62,8 @@ registerable_modules = [
     object_context,
     install_packages,
     prefs_panel,
+    validation_report,
+    edit,
 ]
 
 classes = []
@@ -64,6 +71,7 @@ classes = []
 menus = [
     ["VIEW3D_MT_object_context_menu", menuitem(ObjectKiroMenu)],
     ["NODE_MT_add", menuitem(AddKiroShader, "INVOKE_DEFAULT")],
+    ["TOPBAR_MT_edit", menuitem(edit.EditMenu)]
     # ["NODE_MT_context_menu", menu_function],
     # Some common ones:
     # "Object" menu

@@ -54,14 +54,18 @@ class Cache:
         if self.debug_id: print(f"{self.debug_id}: Cache hit, found key {key} with value", value)
         return self.items[key].get()
 
-    def get_or_resolve(self, key: str, add_fn: callable, lifetime: float = None, item_lifetime: float = None) -> any:
-        try:
-            return self.get_or_raise(key, lifetime)
-        except CacheMissException:
-            pass
+    def get_or_resolve(self, key: str, resolver: callable, lifetime: float = None, item_lifetime: float = None,
+                       ignore_cache: bool = False) -> any:
+        # This seems silly to have an ignore_cache in a caching method, but it allows callers to use the smae resolver
+        # callback lambda or function when caching is directed to be ignored by their caller.
+        if not ignore_cache:
+            try:
+                return self.get_or_raise(key, lifetime)
+            except CacheMissException:
+                pass
 
         if self.debug_id: print(f"{self.debug_id}: Cache miss finding item {key}, resolving with callable")
-        value = add_fn(key)
+        value = resolver(key)
         self.set(key, value, item_lifetime if item_lifetime is not None else self.lifetime)
         return value
 
@@ -71,3 +75,7 @@ class Cache:
         except CacheMissException:
             return None
 
+    def clear(self):
+        self.items = {}
+        if self.debug_id:
+            print("Cache cleared:", self.debug_id)

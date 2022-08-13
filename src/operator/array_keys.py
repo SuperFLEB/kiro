@@ -4,18 +4,20 @@ from bpy.props import StringProperty, IntProperty, FloatProperty, BoolProperty, 
 from bpy.types import PropertyGroup, UIList, Operator
 from ..lib import kiro
 from ..lib import typeset
+from ..lib import types
 
 if "_LOADED" in locals():
     import importlib
-    for mod in (kiro, typeset):  # list all imports here
+
+    for mod in (kiro, typeset, types):  # list all imports here
         importlib.reload(mod)
 _LOADED = True
 
+KiroKeyset = types.KiroKeyset
 
-KiroKeyset = kiro.KiroKeyset
+_ALL_INVALID_ERROR = "Kiro image metadata was either missing or invalid. See View > Kiro Report for details."
 
-
-class KeySet(PropertyGroup):
+class KeySetPropertyGroup(PropertyGroup):
     name: StringProperty(
         name="Name",
         description="Keyset Name",
@@ -52,7 +54,7 @@ class ArrayKeysBase(Operator):
         name="Axis",
         description="How to place new keycaps relative to the original"
     )
-    keysets: CollectionProperty(type=KeySet)
+    keysets: CollectionProperty(type=KeySetPropertyGroup)
     selected_keyset: IntProperty()
 
     @classmethod
@@ -74,16 +76,19 @@ class ArrayKeysBase(Operator):
     def draw_keyset_picker(self, context, layout) -> None:
         context.layout.template_list("CUSTOM_UL_keyset", "keysets", self, "keysets", self, "selected_keyset")
 
-    def keyset_picker(self) -> KiroKeyset:
+    def keyset_picker(self) -> KiroKeyset | None:
         self.keysets.clear()
         keysets_by_image = kiro.keysets_by_image(include_alternates=False)
-        keysets_by_index: list[KiroKeyset] = []
+
+        keysets_by_index = []
         for (image_name, image_keysets) in sorted(keysets_by_image.items(), key=(lambda item: item[0])):
             for ks in sorted(image_keysets, key=(lambda item: item.name)):
                 ui_list_item = self.keysets.add()
                 ui_list_item.name = ks.name
                 ui_list_item.image = image_name
                 keysets_by_index.append(ks)
+        if self.selected_keyset >= len(keysets_by_index):
+            return None
         return keysets_by_index[self.selected_keyset]
 
 
@@ -115,6 +120,11 @@ class ArrayKeys(ArrayKeysBase):
     def execute(self, context) -> Set[str]:
         original = context.selected_objects[0]
         selected_keyset = self.keyset_picker()
+
+        if selected_keyset is None:
+            self.report({"ERROR"}, _ALL_INVALID_ERROR)
+            return {'CANCELLED'}
+
         start_key = original["keycap"] if original["keycap"] else 0
 
         if self.layout_name == "_":
@@ -146,7 +156,7 @@ class StringKeys(ArrayKeysBase):
 
     string: StringProperty(name="String", options={'TEXTEDIT_UPDATE'})
     space_as_gap: BoolProperty(name="Non-bracketed spaces leave a gap",
-                                         description="Space characters that are not in square brackets will leave gaps instead of a key")
+                               description="Space characters that are not in square brackets will leave gaps instead of a key")
     space_gap_adjust: FloatProperty(name="Space Adjust", description="Add or remove space from Space character gaps")
 
     def draw(self, context) -> None:
@@ -165,6 +175,11 @@ class StringKeys(ArrayKeysBase):
     def execute(self, context) -> Set[str]:
         original = context.selected_objects[0]
         selected_keyset = self.keyset_picker()
+
+        if selected_keyset is None:
+            self.report({"ERROR"}, _ALL_INVALID_ERROR)
+            return {'CANCELLED'}
+
         indices = kiro.string_to_indices(self.string, selected_keyset, space_to_none=self.space_as_gap)
         objects = typeset.extend_from_original(
             original,
@@ -177,4 +192,4 @@ class StringKeys(ArrayKeysBase):
         return {'FINISHED'}
 
 
-REGISTER_CLASSES = [KeySet, KeySetUIList, ArrayKeys, StringKeys]
+REGISTER_CLASSES = [KeySetPropertyGroup, KeySetUIList, ArrayKeys, StringKeys]
