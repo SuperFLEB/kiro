@@ -1,0 +1,124 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kiro.nourl.example.com/kiro-sidecar-file.schema.json",
+  "title": "Kiro Sidecar JSON Schema",
+  "description": "The schema for the JSON file that defines Kiro keysets",
+  "type": "object",
+  "properties": {
+    "kiro": {
+      "description": "The sidecar file definition version. So far, only 1.0 is supported",
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 1.0
+    },
+    "name": {
+      "description": "The name of your Kiro keyset package",
+      "type": "string"
+    },
+    "description": {
+      "description": "A more in-depth description",
+      "type": "string"
+    },
+    "keysets": {
+      "description": "An individual keyset in the image",
+      "type": "object",
+      "patternProperties": {
+        "^.*$": {
+          "type": "object",
+          "properties": {
+            "cols": {
+              "description": "Number of columns the image grid (for this keyset) is divided into",
+              "type": "integer"
+            },
+            "rows": {
+              "description": "Number of rows the image grid (for this keyset) is divided into",
+              "type": "integer"
+            },
+            "start": {
+              "description": "Which grid-cell is the first item in the keyset?",
+              "type": "integer"
+            },
+            "length": {
+              "description": "The run-length of the keyset. Any values beyond this will revert to the default_key.",
+              "type": "integer"
+            },
+            "default_key": {
+              "description": "Default 'fallback' key for values beyond the run length of the keyset.",
+              "type": "integer"
+            },
+            "altFor": {
+              "description": "If set, this keyset defines an alternative set of cells for the indicated keyset, such as supplementary labeling on the front of a keycap.",
+              "type": "string"
+            },
+            "keys": {
+              "description": "The keys in the keyset.",
+              "type": "array",
+              "items": {
+                "oneOf": [
+                  {
+                    "description": "A letter or key name",
+                    "type": "string"
+                  },
+                  {
+                    "description": "A null value indicates that there is no key image in this cell.",
+                    "type": "null"
+                  },
+                  {
+                    "description": "A { \"gap\": <number> } is shorthand for a string of <null>s",
+                    "type": "object",
+                    "properties": {
+                      "gap": {
+                        "type": "integer"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  {
+                    "description": "A { \"row_gap\": <number> } is shorthand for a string of <null>s equal to the length of the \"cols\" attribute (one row)",
+                    "type": "object",
+                    "properties": {
+                      "row_gap": {
+                        "type": "integer"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                ]
+              }
+            }
+          },
+          "required": [
+            "cols",
+            "rows",
+            "start",
+            "default_key"
+          ],
+          "oneOf": [
+            {
+              "required": [
+                "keys"
+              ],
+              "not": {
+                "required": [
+                  "altFor"
+                ]
+              }
+            },
+            {
+              "required": [
+                "altFor"
+              ],
+              "not": {
+                "required": [
+                  "keys"
+                ]
+              }
+            }
+          ],
+          "additionalProperties": false
+        }
+      }
+    }
+  },
+  "required": ["name","keysets"]
+}

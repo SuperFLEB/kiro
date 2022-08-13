@@ -1,0 +1,13 @@
+{
+  "kiro": 1.0,
+  "name": "test1",
+  "description": "Minimal test file. Not a template",
+  "keysets": {
+    "a": {
+      "cols": 2,
+      "rows": 2,
+      "start": 0,
+      "keys": ["1","2","3","4"]
+    }
+  }
+}

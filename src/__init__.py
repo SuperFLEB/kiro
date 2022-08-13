@@ -1,12 +1,13 @@
 import bpy
-from typing import Union
 from .operator import array_keys
 from .operator import shader_node
+from .operator import install_packages
+from .panel import preferences as prefs_panel
 from .menu import object_context
 
 if "_LOADED" in locals():
     import importlib
-    for mod in (array_keys, shader_node, object_context):  # list all imports here
+    for mod in (array_keys, shader_node, object_context, pip_install, prefs_panel):  # list all imports here
         importlib.reload(mod)
 _LOADED = True
 
@@ -36,7 +37,7 @@ bl_info = {
 }
 
 
-def menuitem(cls: Union[bpy.types.Operator, bpy.types.Menu], operator_context: str = "EXEC_DEFAULT"):
+def menuitem(cls: bpy.types.Operator | bpy.types.Menu, operator_context: str = "EXEC_DEFAULT"):
     if issubclass(cls, bpy.types.Operator):
         def operator_fn(self, context):
             self.layout.operator_context = operator_context
@@ -54,6 +55,8 @@ registerable_modules = [
     array_keys,
     shader_node,
     object_context,
+    install_packages,
+    prefs_panel,
 ]
 
 classes = []

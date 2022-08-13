@@ -1,7 +1,8 @@
 {
+  "kiro": 1.0,
   "name": "Gorton+PETSCII",
   "description": "A demo keycap set for the Kiro Blender addon",
-  "sets": {
+  "keysets": {
     "Letter and Square Fn": {
       "cols": 16,
       "rows": 16,
