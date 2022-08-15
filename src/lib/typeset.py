@@ -3,13 +3,22 @@ from mathutils import Vector
 from typing import Iterable
 
 
+def _make_guide_wire(name: str, points: list[Vector], target: bpy.types.Collection) -> bpy.types.Object:
+    mesh = bpy.data.meshes.new(name)
+    mesh.from_pydata(points, [(n, n+1) for n in range(len(points) - 1)], [])
+    object = bpy.data.objects.new(name, mesh)
+    target.objects.link(object)
+    return object
+
+
 def extend_from_original(
         original: bpy.types.Object,
         indices: Iterable[int],
         target: bpy.types.Collection,
         gap: int = 0,
         space_gap: int = 0,
-        direction: str = "+x"
+        direction: str = "+x",
+        guide_wire: bool = False,
 ) -> list[bpy.types.Object]:
     if not indices:
         return [original]
@@ -31,21 +40,38 @@ def extend_from_original(
     original["keycap"] = indices[0]
 
     # Make clones for any additional keycaps
-    # TODO: support different orientations, maybe even multiline
-    offset = Vector((0, 0, 0))
-    for token_index, keycap_index in enumerate(indices[1::]):
-        if keycap_index is None:
-            # None indicates a "space" should be inserted
-            offset += space_offset_vector
-            continue
+    current_offset = Vector((0, 0, 0))
+    offsets = [current_offset]
 
-        # TODO: support different orientations, maybe even multiline
-        offset += offset_vector
+    # Precompute offsets so they can be used by both placement and wire-creation
+    for keycap in indices[1:]:
+        current_offset = current_offset + (offset_vector if keycap else space_offset_vector)
+        if keycap is not None:
+            offsets.append(current_offset)
 
-        new_copy = original.copy()
-        new_copy.location = original.location + offset
-        target.objects.link(new_copy)
+    objects = [original]
 
-        # Need to deselect, or the poll fails because more than one object is selected
-        new_copy.select_set(False)
-        new_copy['keycap'] = keycap_index
+    non_space_indices = [i for i in indices if i is not None]
+
+    for index, keycap in enumerate(non_space_indices[1::]):
+        if keycap is not None:
+            new_copy = original.copy()
+            objects.append(new_copy)
+            new_copy.location = original.location + offsets[index + 1]
+            target.objects.link(new_copy)
+
+            # Need to deselect, or the poll fails because more than one object is selected
+            new_copy.select_set(False)
+            new_copy['keycap'] = keycap
+
+    if guide_wire:
+        # TODO: Properly name this
+        wire = _make_guide_wire("KeycapWire", offsets, target)
+        wire.location = objects[0].location
+        for index, object in enumerate(objects):
+            object.parent = wire
+            object.parent_type = "VERTEX"
+            object.location = (0,0,0)
+            object.parent_vertices[0] = index
+
+

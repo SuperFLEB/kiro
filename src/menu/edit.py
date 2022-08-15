@@ -9,7 +9,7 @@ _LOADED = True
 
 
 class EditMenu(bpy.types.Menu):
-    bl_idname = 'object.kiro'
+    bl_idname = 'kiro.edit_menu'
     bl_label = 'Kiro'
 
     def draw(self, context) -> None:

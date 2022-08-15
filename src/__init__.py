@@ -33,9 +33,6 @@ bl_info = {
     "doc_url": "https://github.com/SuperFLEB/kiro",
     "tracker_url": "https://github.com/SuperFLEB/kiro/issues",
     "support": "COMMUNITY",
-    # Categories:
-    # 3D View, Add Curve, Add Mesh, Animation, Compositing, Development, Game Engine, Import-Export, Lighting, Material,
-    # Mesh, Node, Object, Paint, Physics, Render, Rigging, Scene, Sequencer, System, Text Editor, UV, User Interface
     "category": "Object",
 }
 

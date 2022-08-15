@@ -13,7 +13,7 @@ StringKeys = array_keys.StringKeys
 
 
 class ObjectKiroMenu(bpy.types.Menu):
-    bl_idname = 'object.kiro'
+    bl_idname = 'kiro.object_menu'
     bl_label = 'Kiro'
 
     def draw(self, context) -> None:

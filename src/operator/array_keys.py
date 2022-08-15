@@ -17,6 +17,7 @@ KiroKeyset = types.KiroKeyset
 
 _ALL_INVALID_ERROR = "Kiro image metadata was either missing or invalid. See View > Kiro Report for details."
 
+
 class KeySetPropertyGroup(PropertyGroup):
     name: StringProperty(
         name="Name",
@@ -54,6 +55,8 @@ class ArrayKeysBase(Operator):
         name="Axis",
         description="How to place new keycaps relative to the original"
     )
+    make_wire: BoolProperty(name="Make Guide Wire",
+                            description="Make a \"Guide Wire\" object and parent instances to it")
     keysets: CollectionProperty(type=KeySetPropertyGroup)
     selected_keyset: IntProperty()
 
@@ -72,6 +75,7 @@ class ArrayKeysBase(Operator):
         layout.prop(self, "gap")
         axis_row = layout.row()
         axis_row.prop(self, "axis", expand=True)
+        layout.prop(self, "make_wire")
 
     def draw_keyset_picker(self, context, layout) -> None:
         context.layout.template_list("CUSTOM_UL_keyset", "keysets", self, "keysets", self, "selected_keyset")
@@ -142,7 +146,8 @@ class ArrayKeys(ArrayKeysBase):
             indices,
             target=context.collection,
             gap=self.gap,
-            direction=self.axis
+            direction=self.axis,
+            guide_wire=self.make_wire
         )
 
         return {'FINISHED'}
@@ -161,12 +166,10 @@ class StringKeys(ArrayKeysBase):
 
     def draw(self, context) -> None:
         layout = self.layout
-        layout.prop(self, "gap")
+
+        self.draw_common_layout(context, layout)
+
         layout.prop(self, "string")
-
-        axis_row = layout.row()
-        axis_row.prop(self, "axis", expand=True)
-
         layout.prop(self, "space_as_gap")
         if self.space_as_gap:
             layout.prop(self, "space_gap_adjust")
@@ -187,7 +190,8 @@ class StringKeys(ArrayKeysBase):
             target=context.collection,
             gap=self.gap,
             space_gap=self.space_gap_adjust,
-            direction=self.axis
+            direction=self.axis,
+            guide_wire=self.make_wire
         )
         return {'FINISHED'}
 
