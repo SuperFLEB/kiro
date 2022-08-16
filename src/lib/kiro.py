@@ -21,6 +21,7 @@ _CACHE_TIME = 5
 _general_cache = cache.Cache(_CACHE_TIME, debug_id=("_general_cache" if _DEBUG_CACHE else None))
 _data_cache = cache.Cache(_CACHE_TIME, debug_id=("_data_cache" if _DEBUG_CACHE else None))
 
+
 def _test_clear_caches():
     """Reinitialize the caches. This should only be used by tests."""
     _general_cache.clear()
@@ -33,7 +34,8 @@ def kiro_images(ignore_cache: bool = False) -> list[types.KiroImageMeta]:
         if cached: return cached
 
     # TODO: Probably will have to unroll this in order to suppport packed images
-    images = [meta for meta in [kiro_image_meta(image) for image in bpy.data.images] if meta.json_path is not None and meta.image_path is not None]
+    images = [meta for meta in [kiro_image_meta(image) for image in bpy.data.images] if
+              meta.json_path is not None and meta.image_path is not None]
 
     if not ignore_cache:
         _general_cache.set("images", images)
@@ -69,7 +71,7 @@ def kiro_data(json_file_path: str, ignore_cache: bool = False) -> types.KiroMeta
     )
 
 
-def string_to_indices(characters: str, keyset: types.KiroKeyset, space_to_none: bool = False) -> list[int]:
+def string_to_tokens(characters: str, space_to_none: bool = False) -> list[str | None]:
     tokens = []
     in_long_token = False
     for char in characters:
@@ -87,26 +89,35 @@ def string_to_indices(characters: str, keyset: types.KiroKeyset, space_to_none: 
             tokens[-1] += char
             continue
         tokens.append(char)
-    return tokens_to_indices(tokens, keyset)
+    return tokens
 
 
-def tokens_to_indices(tokens: list[str], keyset: types.KiroKeyset) -> list[int]:
-    indices = []
+def normalize_tokens(tokens, keyset: types.KiroKeyset) -> list[str | None]:
+    tokens_out = []
     for token in tokens:
+        if token is None:
+            tokens_out.append(None)
+            continue
+
+        for variant in [token, token.upper(), token.lower()]:
+            if variant in keyset.keys:
+                tokens_out.append(variant)
+                break
+
+    return tokens_out
+
+
+def tokens_to_indices(normalized_tokens: list[str], keyset: types.KiroKeyset) -> list[int]:
+    indices = []
+    for token in normalized_tokens:
         if token is None:
             indices.append(None)
             continue
+        try:
+            indices.append(keyset.keys.index(token))
+        except ValueError:
+            pass
 
-        found_index = None
-        for variant in [token, token.upper(), token.lower()]:
-            try:
-                found_index = keyset.keys.index(variant)
-                indices.append(found_index)
-                break
-            except ValueError:
-                pass
-            if found_index:
-                break
     return indices
 
 
@@ -132,7 +143,8 @@ def keysets_for_image_name_full(image_name_full: str, include_alternates: bool =
     return keysets_for_image(images[0], include_alternates=include_alternates, ignore_cache=ignore_cache)
 
 
-def keysets_for_image(image: types.KiroImageMeta, include_alternates: bool = True, ignore_cache: bool = False) -> list[types.KiroKeyset]:
+def keysets_for_image(image: types.KiroImageMeta, include_alternates: bool = True, ignore_cache: bool = False) -> list[
+    types.KiroKeyset]:
     data = kiro_data(image.json_path, ignore_cache=ignore_cache)
     if not data:
         return []
@@ -185,3 +197,11 @@ def layout_sequence(start: int, length: int, layout_name: str, keyset: types.Kir
     tokens = lo[first_layout_index:first_layout_index + length:-1 if length < 0 else 1]
     indices = tokens_to_indices(tokens, keyset)
     return indices
+
+
+def detect_wrong_keyset(string: str, keyset: types.KiroKeyset) -> bool:
+    """Detect the wrong keyset by seeing whether every token in the string has a corresponding index from the keyset"""
+    meh_dont_care = [" ", "[", "]"]
+    tokens = [t for t in string_to_tokens(string, space_to_none=False) if t not in meh_dont_care]
+    normalized = normalize_tokens(tokens, keyset)
+    return len(tokens) > len(normalized)

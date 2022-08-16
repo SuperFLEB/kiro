@@ -81,6 +81,7 @@ If everything checks out, congratulations! You have a semantically valid Kiro fi
 
 ### Next-up Fixes
 
+* Add an option to put the generated keys into a new collection
 * Put more logical validity checks in the report generator. Check for "alt_for" relationships, bounds on numbers, etc.
 * Document the JSON file format and how to make your own keycap sets
 * Allow loading an image that isn't already in the file from the Kiro interface.

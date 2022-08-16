@@ -59,6 +59,7 @@ class ArrayKeysBase(Operator):
                             description="Make a \"Guide Wire\" object and parent instances to it")
     keysets: CollectionProperty(type=KeySetPropertyGroup)
     selected_keyset: IntProperty()
+    warn_about_keyset: BoolProperty(default=False)
 
     @classmethod
     def poll(cls, context) -> bool:
@@ -140,6 +141,7 @@ class ArrayKeys(ArrayKeysBase):
                 keyset=selected_keyset,
                 layout_name=self.layout_name
             )
+        normalized_tokens = [kiro.index_to_token(i, selected_keyset) for i in indices]
 
         objects = typeset.extend_from_original(
             original,
@@ -147,7 +149,8 @@ class ArrayKeys(ArrayKeysBase):
             target=context.collection,
             gap=self.gap,
             direction=self.axis,
-            guide_wire=self.make_wire
+            guide_wire=self.make_wire,
+            normalized_tokens=normalized_tokens,
         )
 
         return {'FINISHED'}
@@ -173,6 +176,11 @@ class StringKeys(ArrayKeysBase):
         layout.prop(self, "space_as_gap")
         if self.space_as_gap:
             layout.prop(self, "space_gap_adjust")
+
+        if self.warn_about_keyset:
+            errbox = layout.box()
+            errbox.alert = True
+            errbox.label(text="Wrong keyset? Check below...", icon="QUESTION")
         layout.template_list("CUSTOM_UL_keyset", "keysets", self, "keysets", self, "selected_keyset")
 
     def execute(self, context) -> Set[str]:
@@ -183,7 +191,11 @@ class StringKeys(ArrayKeysBase):
             self.report({"ERROR"}, _ALL_INVALID_ERROR)
             return {'CANCELLED'}
 
-        indices = kiro.string_to_indices(self.string, selected_keyset, space_to_none=self.space_as_gap)
+        self.warn_about_keyset = kiro.detect_wrong_keyset(self.string, selected_keyset)
+        tokens = kiro.string_to_tokens(self.string, self.space_as_gap)
+        normalized_tokens = kiro.normalize_tokens(tokens, selected_keyset)
+        indices = kiro.tokens_to_indices(normalized_tokens, selected_keyset)
+
         objects = typeset.extend_from_original(
             original,
             indices,
@@ -191,7 +203,8 @@ class StringKeys(ArrayKeysBase):
             gap=self.gap,
             space_gap=self.space_gap_adjust,
             direction=self.axis,
-            guide_wire=self.make_wire
+            guide_wire=self.make_wire,
+            normalized_tokens=normalized_tokens
         )
         return {'FINISHED'}
 
