@@ -3,7 +3,6 @@
 import subprocess
 import re
 import sys
-import zipfile
 from zipfile import ZipFile, ZIP_DEFLATED
 from pathlib import Path
 from os import chdir
@@ -15,13 +14,12 @@ except subprocess.CalledProcessError:
     tag_name = "latest"
 
 # SETUP
-wrap_dir = "kiro"  # Wrap the output in a directory in the ZIP file
-output_file = f"blender_kiro_addon_{tag_name}.zip"  # What to call the ZIP file
-addon_dir = f"kiro"  # What to call the addon directory
 root_dir = "src"  # Start here
-toss_ins = ["demo", "README", "README.md", "LICENSE", "COPYING"]  # Drag these files into src from the root
+toss_ins = ["demo", "README", "README.md", "LICENSE", "COPYING"]  # Toss these files in from the super-root directory, too.
 exclude_regexes = [r"__pycache__", r"^venv", r"\.gitignore", r"^\.idea",
                    r".blend1$"]  # Exclude anything that matches these
+wrap_dir = "kiro"  # Wrap the output in a directory in the ZIP file
+output_file = f"blender_kiro_addon_{tag_name}.zip"  # What to call the ZIP file
 
 # EXECUTION
 home = str(Path(__file__).parents[0])
@@ -55,11 +53,13 @@ paths = [p for p in paths if p not in untracked_paths]
 # Add toss-in files
 tossin_all = [Path(p) for p in toss_ins if Path(p).exists()]
 tossin_paths = [p for p in tossin_all if not p.is_dir()]
+
 # Traverse toss-in directories
 for dp in tossin_all:
     if dp.is_dir():
         tossin_paths += [p for p in Path(dp).rglob("**/*")]
-# Filter out excluded files and untracked files
+
+# Filter out excluded files and untracked files from toss-ins
 untracked_tossins = [p for p in tossin_paths if p in git_untracked]
 tossin_paths = [p for p in tossin_paths if p not in untracked_tossins and regex_allows(str(p))]
 
@@ -76,11 +76,11 @@ print("\nCreating archive...\n")
 with ZipFile(output_file, mode="w", compression=ZIP_DEFLATED, compresslevel=9) as archive:
     # Write normal files
     for p in paths:
-        zip_path = str(Path(addon_dir, *p.parts[1:]))
+        zip_path = str(Path(wrap_dir, *p.parts[1:]))
         print("rootdir: ", zip_path)
         archive.write(p, arcname=zip_path)
     for p in tossin_paths:
-        zip_path = str(Path(addon_dir, p))
+        zip_path = str(Path(wrap_dir, p))
         print("toss-in: ", zip_path)
         archive.write(p, arcname=zip_path)
 
