@@ -1,3 +1,4 @@
+from typing import Set
 import bpy
 import json
 from os.path import exists, dirname, basename, join
@@ -6,11 +7,12 @@ import re
 from . import cache
 from . import metadata
 from . import types
+from . import util
 
 if "_LOADED" in locals():
     import importlib
 
-    for mod in (cache, metadata, types):  # list all imports here
+    for mod in (cache, metadata, types, util):  # list all imports here
         importlib.reload(mod)
 _LOADED = True
 
@@ -205,3 +207,32 @@ def detect_wrong_keyset(string: str, keyset: types.KiroKeyset) -> bool:
     tokens = [t for t in string_to_tokens(string, space_to_none=False) if t not in meh_dont_care]
     normalized = normalize_tokens(tokens, keyset)
     return len(tokens) > len(normalized)
+
+
+def _get_keysets_from_group_node(node: bpy.types.Node):
+    # This is a Kiro Grid Picker, so get its Keyset value or fail
+    if "kiro_id" in node.node_tree and node.node_tree["kiro_id"].startswith("GRID_PICKER"):
+        if node.node_tree["kiro_id"] == "GRID_PICKER_0.2" and "Keyset" in node.inputs and node.inputs[
+            "Keyset"].default_value:
+            return [node.inputs["Keyset"].default_value]
+        else:
+            # Incompatible or broken GRID_PICKER
+            return []
+    return util.flatten([n for n in node.node_tree.nodes if n.type == "GROUP"])
+
+
+def keysets_in_use(obj: bpy.types.Object, ttl: int | None = None) -> list[str]:
+    # I'm not sure if circular-reference Collection Instances can exist, but if they do, ttl them out
+    if ttl == 0:
+        return []
+    elif ttl is not None:
+        ttl -= 1
+
+    if obj.instance_collection:
+        return list(set(util.flatten([keysets_in_use(kiu, ttl if ttl else 20) for kiu in obj.instance_collection.objects])))
+
+    if obj.material_slots:
+        nodes = util.flatten([ms.material.node_tree.nodes for ms in obj.material_slots])
+        return list(set(util.flatten([_get_keysets_from_group_node(n) for n in nodes if n.type == "GROUP"])))
+
+    return []

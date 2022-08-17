@@ -5,11 +5,12 @@ from bpy.types import PropertyGroup, UIList, Operator
 from ..lib import kiro
 from ..lib import typeset
 from ..lib import types
+from ..lib import util
 
 if "_LOADED" in locals():
     import importlib
 
-    for mod in (kiro, typeset, types):  # list all imports here
+    for mod in (kiro, typeset, types, util,):  # list all imports here
         importlib.reload(mod)
 _LOADED = True
 
@@ -29,6 +30,10 @@ class KeySetPropertyGroup(PropertyGroup):
         description="Image the keyset is associated with",
         default=""
     )
+    is_in_material: BoolProperty(
+        name="IsInMaterial",
+        description="Is the keyset referenced in any Material nodes on the object"
+    )
 
 
 class KeySetUIList(UIList):
@@ -36,8 +41,16 @@ class KeySetUIList(UIList):
     bl_label = "Key Sets"
     bl_idname = "CUSTOM_UL_keyset"
 
+    def filter_items(self, context, data, propname):
+        keysets = getattr(data, propname)
+        resorted = sorted(
+            [{"was": idx, "ks": ks} for idx, ks in enumerate(keysets)],
+            key=lambda ks: "|".join(["a" if ks["ks"]["is_in_material"] else "b", ks["ks"]["image"], ks["ks"]["name"]])
+        )
+        return [], [rs["was"] for rs in resorted]
+
     def draw_item(self, context, layout, data, item, iocon, active_data, active_propname, index) -> None:
-        layout.label(text=item.name)
+        layout.label(text=item.name, icon=("SHADING_TEXTURE" if item.is_in_material else "NONE"))
         layout.label(text=item.image)
 
 
@@ -81,25 +94,28 @@ class ArrayKeysBase(Operator):
     def draw_keyset_picker(self, context, layout) -> None:
         context.layout.template_list("CUSTOM_UL_keyset", "keysets", self, "keysets", self, "selected_keyset")
 
-    def keyset_picker(self) -> KiroKeyset | None:
+    def keyset_picker(self, context) -> KiroKeyset | None:
         self.keysets.clear()
-        keysets_by_image = kiro.keysets_by_image(include_alternates=False)
-
-        keysets_by_index = []
-        for (image_name, image_keysets) in sorted(keysets_by_image.items(), key=(lambda item: item[0])):
-            for ks in sorted(image_keysets, key=(lambda item: item.name)):
+        keysets_presumably_in_use = kiro.keysets_in_use(context.selected_objects[0])
+        keysets = []
+        for (image_name, image_keysets) in kiro.keysets_by_image(include_alternates=False).items():
+            for ks in image_keysets:
                 ui_list_item = self.keysets.add()
                 ui_list_item.name = ks.name
                 ui_list_item.image = image_name
-                keysets_by_index.append(ks)
-        if self.selected_keyset >= len(keysets_by_index):
+                ui_list_item.is_in_material = ks.name in keysets_presumably_in_use
+
+                keysets.append(ks)
+
+        if self.selected_keyset >= len(keysets):
             return None
-        return keysets_by_index[self.selected_keyset]
+
+        return keysets[self.selected_keyset]
 
 
 def fill_layout_enum(self, context) -> list[tuple[str, str, str]]:
     enum = [
-        ("_", "(From keycaps)", "The sequence in the keyset")
+        ("_", "(From keycaps)", "The sequence in the keyset"),
     ]
     for name in kiro.get_layout_names():
         enum.append((name, name, f"The built-in \"{name}\" layout"))
@@ -124,13 +140,13 @@ class ArrayKeys(ArrayKeysBase):
 
     def execute(self, context) -> Set[str]:
         original = context.selected_objects[0]
-        selected_keyset = self.keyset_picker()
+        selected_keyset = self.keyset_picker(context)
 
         if selected_keyset is None:
             self.report({"ERROR"}, _ALL_INVALID_ERROR)
             return {'CANCELLED'}
 
-        start_key = original["keycap"] if original["keycap"] else 0
+        start_key = original["keycap"] if "keycap" in original else 0
 
         if self.layout_name == "_":
             indices = range(start_key, start_key + self.length, -1 if self.length < 0 else 1)
@@ -146,7 +162,7 @@ class ArrayKeys(ArrayKeysBase):
         objects = typeset.extend_from_original(
             original,
             indices,
-            target=context.collection,
+            target=util.get_collection_of_object(original),
             gap=self.gap,
             direction=self.axis,
             guide_wire=self.make_wire,
@@ -185,7 +201,7 @@ class StringKeys(ArrayKeysBase):
 
     def execute(self, context) -> Set[str]:
         original = context.selected_objects[0]
-        selected_keyset = self.keyset_picker()
+        selected_keyset = self.keyset_picker(context)
 
         if selected_keyset is None:
             self.report({"ERROR"}, _ALL_INVALID_ERROR)
@@ -199,7 +215,7 @@ class StringKeys(ArrayKeysBase):
         objects = typeset.extend_from_original(
             original,
             indices,
-            target=context.collection,
+            target=util.get_collection_of_object(original),
             gap=self.gap,
             space_gap=self.space_gap_adjust,
             direction=self.axis,
