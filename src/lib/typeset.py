@@ -1,7 +1,7 @@
 import bpy
 import re
 from mathutils import Vector
-from typing import Iterable
+from . import boxer
 
 
 def _make_guide_wire(name: str, points: list[Vector], target: bpy.types.Collection) -> bpy.types.Object:
@@ -38,7 +38,12 @@ def extend_from_original(
     # Precompute offsets so they can be used by both placement and wire-creation
     current_offset = Vector((0, 0, 0))
     offsets = [current_offset]
-    offset_vector = (original.dimensions + Vector((gap,) * 3)) * offset_direction
+
+    dimensions = original.dimensions
+    if not [d for d in dimensions if d != 0.0]:
+        box = boxer.get_extremes(original, False)
+        dimensions = box[1] - box[0]
+    offset_vector = (dimensions + Vector((gap,) * 3)) * offset_direction
     space_offset_vector = offset_vector + (Vector((space_gap,) * 3) * offset_direction)
     for keycap in indices[1:]:
         current_offset = current_offset + (offset_vector if keycap else space_offset_vector)

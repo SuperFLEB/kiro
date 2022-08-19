@@ -1,3 +1,4 @@
+from typing import Iterable
 import bpy
 import re
 
@@ -41,3 +42,20 @@ def get_collection_of_object(obj: bpy.types.Object, default_to_context: bool = T
 
     # Return the first collection from anywhere
     return obj.users_collection[0]
+
+
+def get_operator_defaults(operator_instance) -> dict[str, any]:
+    """Scan annotations on the given instance and all parent classes to find default operator values"""
+    defaults = {}
+    for cls in [type(operator_instance)] + list(type(operator_instance).__mro__):
+        for note_name, note in getattr(cls, '__annotations__', {}).items():
+            if hasattr(note, "keywords") and "default" in note.keywords:
+                defaults[note_name] = note.keywords["default"]
+    return defaults
+
+
+def reset_operator_defaults(operator_instance, keys: Iterable[str]) -> None:
+    defaults = get_operator_defaults(operator_instance)
+    for key in keys:
+        if key in defaults:
+            setattr(operator_instance, key, defaults[key])

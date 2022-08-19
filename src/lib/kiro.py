@@ -1,4 +1,3 @@
-from typing import Set
 import bpy
 import json
 from os.path import exists, dirname, basename, join
@@ -203,8 +202,15 @@ def layout_sequence(start: int, length: int, layout_name: str, keyset: types.Kir
 
 def detect_wrong_keyset(string: str, keyset: types.KiroKeyset) -> bool:
     """Detect the wrong keyset by seeing whether every token in the string has a corresponding index from the keyset"""
-    meh_dont_care = [" ", "[", "]"]
-    tokens = [t for t in string_to_tokens(string, space_to_none=False) if t not in meh_dont_care]
+
+    # Ignore unclosed bracketed chars
+    if "[" in string:
+        last_bracket = string.rindex("[")
+        remain = string[last_bracket:]
+        if "]" not in remain:
+            string = string[:last_bracket]
+
+    tokens = [t for t in string_to_tokens(string, space_to_none=False) if t not in (" ", "[", "]")]
     normalized = normalize_tokens(tokens, keyset)
     return len(tokens) > len(normalized)
 
@@ -212,12 +218,10 @@ def detect_wrong_keyset(string: str, keyset: types.KiroKeyset) -> bool:
 def _get_keysets_from_group_node(node: bpy.types.Node):
     # This is a Kiro Grid Picker, so get its Keyset value or fail
     if "kiro_id" in node.node_tree and node.node_tree["kiro_id"].startswith("GRID_PICKER"):
-        if node.node_tree["kiro_id"] == "GRID_PICKER_0.2" and "Keyset" in node.inputs and node.inputs[
-            "Keyset"].default_value:
+        if node.node_tree["kiro_id"] == "GRID_PICKER_0.2" and "Keyset" in node.inputs and node.inputs["Keyset"].default_value:
             return [node.inputs["Keyset"].default_value]
-        else:
-            # Incompatible or broken GRID_PICKER
-            return []
+        # Incompatible or broken GRID_PICKER
+        return []
     return util.flatten([n for n in node.node_tree.nodes if n.type == "GROUP"])
 
 
@@ -229,7 +233,8 @@ def keysets_in_use(obj: bpy.types.Object, ttl: int | None = None) -> list[str]:
         ttl -= 1
 
     if obj.instance_collection:
-        return list(set(util.flatten([keysets_in_use(kiu, ttl if ttl else 20) for kiu in obj.instance_collection.objects])))
+        return list(
+            set(util.flatten([keysets_in_use(kiu, ttl if ttl else 20) for kiu in obj.instance_collection.objects])))
 
     if obj.material_slots:
         nodes = util.flatten([ms.material.node_tree.nodes for ms in obj.material_slots])

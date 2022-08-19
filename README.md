@@ -1,5 +1,7 @@
 # Kiro
 
+https://github.com/SuperFLEB/kiro
+
 This is a Blender addon that helps quickly cloning keyboard keys, typewriters, letter-game tiles, and other such items
 that can be textured by an image grid of letters and symbols. It's called "Kiro" because it makes keys in rows. Get it?
 

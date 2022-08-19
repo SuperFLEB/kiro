@@ -55,7 +55,7 @@ class KeySetUIList(UIList):
 
 
 class ArrayKeysBase(Operator):
-    gap: FloatProperty(name="Gap")
+    gap: FloatProperty(name="Gap", default=0)
     axis: EnumProperty(
         items=[
             ("+x", "+X", "Left to right"),
@@ -71,7 +71,7 @@ class ArrayKeysBase(Operator):
     make_wire: BoolProperty(name="Make Guide Wire",
                             description="Make a \"Guide Wire\" object and parent instances to it")
     keysets: CollectionProperty(type=KeySetPropertyGroup)
-    selected_keyset: IntProperty()
+    selected_keyset: IntProperty(default=0)
     warn_about_keyset: BoolProperty(default=False)
 
     @classmethod
@@ -110,7 +110,7 @@ class ArrayKeysBase(Operator):
         if self.selected_keyset >= len(keysets):
             return None
 
-        return keysets[self.selected_keyset]
+        return keysets[self.selected_keyset if self.selected_keyset else 0]
 
 
 def fill_layout_enum(self, context) -> list[tuple[str, str, str]]:
@@ -127,8 +127,9 @@ class ArrayKeys(ArrayKeysBase):
     bl_idname = "object.array_keycaps"
     bl_label = "Clone Keycap to Sequence"
     bl_options = {'REGISTER', 'UNDO'}
+    bl_property = "length"
 
-    length: IntProperty(name="String Length")
+    length: IntProperty(name="String Length", default=0)
     layout_name: EnumProperty(name="Layout", items=fill_layout_enum)
 
     def draw(self, context) -> None:
@@ -137,6 +138,10 @@ class ArrayKeys(ArrayKeysBase):
         layout.prop(self, "length")
         self.draw_common_layout(context, layout)
         layout.template_list("CUSTOM_UL_keyset", "keysets", self, "keysets", self, "selected_keyset")
+
+    def invoke(self, context, event):
+        util.reset_operator_defaults(self, ("length",))
+        return self.execute(context)
 
     def execute(self, context) -> Set[str]:
         original = context.selected_objects[0]
@@ -177,11 +182,19 @@ class StringKeys(ArrayKeysBase):
     bl_idname = "object.string_keycaps"
     bl_label = "Clone Keycap from Text"
     bl_options = {'REGISTER', 'UNDO'}
+    bl_property = "string"
 
-    string: StringProperty(name="String", options={'TEXTEDIT_UPDATE'})
+    string: StringProperty(name="String", options={'TEXTEDIT_UPDATE'}, default="")
     space_as_gap: BoolProperty(name="Non-bracketed spaces leave a gap",
-                               description="Space characters that are not in square brackets will leave gaps instead of a key")
-    space_gap_adjust: FloatProperty(name="Space Adjust", description="Add or remove space from Space character gaps")
+                               description="Space characters that are not in square brackets will leave gaps instead of a key",
+                               default=False)
+    space_gap_adjust: FloatProperty(name="Space Adjust",
+                                    description="Add or remove space from Space character gaps",
+                                    default=0.0)
+
+    def invoke(self, context, event):
+        util.reset_operator_defaults(self, ("string",))
+        return self.execute(context)
 
     def draw(self, context) -> None:
         layout = self.layout
