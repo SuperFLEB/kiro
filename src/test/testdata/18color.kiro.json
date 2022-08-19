@@ -1,0 +1,22 @@
+{
+  "kiro": 1.0,
+  "name": "Self-Test Sidecar File",
+  "description": "For use in self-tests",
+  "keysets": {
+    "Keyset1": {
+      "cols": 3,
+      "rows": 3,
+      "start": 0,
+      "keys": ["A","B","C","D","E",null,"F","G","H","I","J"],
+      "default_key": 5
+    },
+    "Keyset2": {
+      "alt_for": "Keyset1",
+      "cols": 6,
+      "rows": 6,
+      "start": 24,
+      "length": 12,
+      "default_key": 0
+    }
+  }
+}
