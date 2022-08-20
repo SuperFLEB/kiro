@@ -129,18 +129,42 @@ class ArrayKeys(ArrayKeysBase):
     bl_options = {'REGISTER', 'UNDO'}
     bl_property = "length"
 
-    length: IntProperty(name="String Length", default=0)
+    start_index: IntProperty(name="Starting Key", default=0)
+    start_string: StringProperty(name="Starting Key", default="", options={'TEXTEDIT_UPDATE'})
+    start_type: EnumProperty(name="Start", items=[
+        ("existing", "Existing", "Use the key already assigned", "OBJECT_DATA", 0),
+        ("index", "By Index", "Specify by numeric index", "ARROW_LEFTRIGHT", 1),
+        ("string", "By Keycap", "Specify by letter or keycap", "EVENT_A", 2),
+    ], default="existing")
+    length: IntProperty(name="String Length", default=1)
     layout_name: EnumProperty(name="Layout", items=fill_layout_enum)
+    start_token_valid: BoolProperty(default=False)
 
     def draw(self, context) -> None:
         layout = self.layout
+
         layout.prop(self, "layout_name")
+
+        start_type_split = layout.split(factor=0.25)
+        start_type_split.label(text="Start at:")
+
+        start_type_row = start_type_split.row()
+
+        start_type_row.prop(self, "start_type", expand=True, icon_only=True)
+        if self.start_type == "existing":
+            start_type_row.label(text="(from object)")
+        elif self.start_type == "index":
+            start_type_row.prop(self, "start_index", text="")
+        elif self.start_type == "string":
+            start_type_row.prop(self, "start_string", text="")
+            start_type_row.label(icon="CHECKMARK" if self.start_token_valid else "X")
+
         layout.prop(self, "length")
         self.draw_common_layout(context, layout)
         layout.template_list("CUSTOM_UL_keyset", "keysets", self, "keysets", self, "selected_keyset")
 
     def invoke(self, context, event):
-        util.reset_operator_defaults(self, ("length",))
+        util.reset_operator_defaults(self, ("length", "start_type", "start_index", "start_string"))
         return self.execute(context)
 
     def execute(self, context) -> Set[str]:
@@ -151,14 +175,43 @@ class ArrayKeys(ArrayKeysBase):
             self.report({"ERROR"}, _ALL_INVALID_ERROR)
             return {'CANCELLED'}
 
-        start_key = original["keycap"] if "keycap" in original else 0
+        if self.start_type == "index":
+            start_index = self.start_index
+            start_token = kiro.index_to_token(start_index, selected_keyset)
+            self.start_string = start_token if start_token else ""
+        elif self.start_type == "string":
+            def get_start_index():
+                s_token = kiro.string_to_tokens(self.start_string, False)
+
+                # If more/less than one found, try taking the entire string as one [bracketed] token
+                if len(s_token) != 1:
+                    alt_token = kiro.string_to_tokens(f"[{self.start_string}]", False)
+                    if len(alt_token) == 1:
+                        s_token = alt_token
+
+                if len(s_token) == 0:
+                    self.start_token_valid = False
+                    return 0
+                s_indices = kiro.tokens_to_indices(kiro.normalize_tokens(s_token[0:1], selected_keyset), selected_keyset)
+                if len(s_indices) == 0:
+                    return 0
+                self.start_token_valid = True
+                return s_indices[0]
+
+            start_index = get_start_index()
+            self.start_index = start_index
+        else:
+            start_index = original["keycap"] if "keycap" in original else 0
+            self.start_index = start_index
+            start_token = kiro.index_to_token(start_index, selected_keyset)
+            self.start_string = start_token if start_token else ""
 
         if self.layout_name == "_":
-            indices = range(start_key, start_key + self.length, -1 if self.length < 0 else 1)
+            indices = range(start_index, start_index + self.length, -1 if self.length < 0 else 1)
         else:
             indices = kiro.layout_sequence(
-                start_key,
-                self.length,
+                start_index,
+                self.length if self.length else 1,
                 keyset=selected_keyset,
                 layout_name=self.layout_name
             )
