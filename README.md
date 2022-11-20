@@ -17,7 +17,7 @@ together with proper ZIP files sometime here.
 
 ### jsonschema Python requirement
 
-Though it is not required for basic functionality, this addon uses the `jsonschema` Python package is used to validate
+Though it is not required for basic functionality, this addon uses the `jsonschema` Python package to validate
 *.kiro.json sidecar files. It can be one-click installed (and uninstalled) with the button in the addon's Preferences
 panel. If it is not installed, the addon will function as expected, except for the fact that having an image with a
 broken JSON sidecar file may cause instability in the addon, and the Kiro Report feature will not validate JSON files.
